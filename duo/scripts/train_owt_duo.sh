@@ -1,25 +1,40 @@
 #!/bin/bash
-#SBATCH -J duo-lm1b                   # Job name
-#SBATCH -o watch_folder/%x_%j.out     # output file (%j expands to jobID)
-#SBATCH -N 1                          # Total number of nodes requested
-#SBATCH --get-user-env                # retrieve the users login environment
-#SBATCH --mem=64000                   # server memory requested (per node)
-#SBATCH -t 960:00:00                  # Time limit (hh:mm:ss)
-#SBATCH --partition=kuleshov          # Request partition
-#SBATCH --constraint="[a5000|a6000|a100|3090]"
-#SBATCH --constraint="gpu-mid|gpu-high"
-#SBATCH --ntasks-per-node=8
-#SBATCH --gres=gpu:8                  # Type/number of GPUs needed
-#SBATCH --open-mode=append            # Do not overwrite logs
-#SBATCH --requeue                     # Requeue upon pre-emption
+#SBATCH --partition=general
+#SBATCH --job-name=duo
+#SBATCH --gres=gpu:4
+#SBATCH --constraint=VRAM_48GB
+#SBATCH --cpus-per-task=20
+#SBATCH --mem=40G
+#SBATCH --time=48:00:00
+#SBATCH --output=/home/mananaga/logs/%j/.out
+#SBATCH --error=/home/mananaga/logs/%j/.out
+mkdir -p logs
+
+echo "Working directory: $(pwd)"
+echo "Job ID: $SLURM_JOB_ID"
+echo "Job submitted from: $SLURM_SUBMIT_DIR"
+echo "Running on node: $SLURMD_NODENAME"
+
+# Set environment variables
+export CUDA_VISIBLE_DEVICES=0,1,2,3
+
+# Activate conda environment
+source ~/miniconda/etc/profile.d/conda.sh && conda activate duo
+
+# Change to the project directory where main.py is located
+cd /home/mananaga/diffusion-lms/duo
+
+# Create cache directory if it doesn't exist
+mkdir -p /data/user_data/$USER/duo_data
 
 # To enable preemption re-loading, set `hydra.run.dir` or 
 # `checkpointing.save_dir` explicitly.
 
-srun python -u -m main \
+python -u -m main \
   loader.batch_size=32 \
   loader.eval_batch_size=32 \
   data=openwebtext-split \
+  data.cache_dir=/data/user_data/$USER/duo_data \
   wandb.name=duo-owt \
   model=small \
   algo=duo \
