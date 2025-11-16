@@ -1,11 +1,9 @@
 #!/bin/bash
-#SBATCH --partition=flame
-#SBATCH --qos=flame-8gpu-b_qos
-#SBATCH --account=aditirag
+#SBATCH --partition=general
 #SBATCH --job-name=duo
-#SBATCH --gres=gpu:8
+#SBATCH --gres=gpu:A6000:4
 #SBATCH --cpus-per-task=50
-#SBATCH --mem=160G
+#SBATCH --mem=40G
 #SBATCH --time=48:00:00
 #SBATCH --output=/home/mananaga/logs/%j/.out
 #SBATCH --error=/home/mananaga/logs/%j/.out
@@ -17,7 +15,7 @@ echo "Job submitted from: $SLURM_SUBMIT_DIR"
 echo "Running on node: $SLURMD_NODENAME"
 
 # Set environment variables
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 # Activate conda environment
 source ~/miniconda/etc/profile.d/conda.sh && conda activate duo
@@ -25,19 +23,19 @@ source ~/miniconda/etc/profile.d/conda.sh && conda activate duo
 # Change to the project directory where main.py is located
 cd /home/mananaga/diffusion-lms/duo
 
-# Create cache directory if it doesn't exist
-mkdir -p /project/flame/mananaga/duo_data
-mkdir -p /project/flame/mananaga/duo_checkpoints
+# Create cache and checkpoint directories if they don't exist
+mkdir -p /data/user_data/$USER/duo_data
+mkdir -p /data/user_data/$USER/duo_checkpoints
 
 # To enable preemption re-loading, set `hydra.run.dir` or 
 # `checkpointing.save_dir` explicitly.
 
 python -u -m main \
-  loader.batch_size=32 \
-  loader.eval_batch_size=32 \
+  loader.batch_size=8 \
+  loader.eval_batch_size=8 \
   data=openwebtext-split \
-  data.cache_dir=/project/flame/mananaga/duo_data \
-  checkpointing.save_dir=/project/flame/mananaga/duo_checkpoints \
+  data.cache_dir=/data/user_data/$USER/duo_data \
+  checkpointing.save_dir=/data/user_data/$USER/duo_checkpoints \
   callbacks.checkpoint_every_n_steps.save_top_k=0 \
   callbacks.checkpoint_every_n_steps.save_last=false \
   wandb.name=duo-owt \
