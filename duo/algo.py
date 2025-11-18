@@ -648,3 +648,250 @@ class Distillation(DUO):
              on_epoch=False,
              sync_dist=True)
     return super().training_step(batch, batch_idx)
+
+class GaussianLogitDiffusion(trainer_base.TrainerBase):
+  """
+  Continuous diffusion LM over one-hot logit space.
+
+  - Data: token sequences x0 of shape [B, L] with vocab_size V.
+  - We embed them as one-hot matrices X0 in R^{B x L x V}.
+  - Forward process: Gaussian diffusion in logit space:
+      X_t = sqrt(alpha_bar_t) * X0 + sqrt(1 - alpha_bar_t) * eps
+    where alpha_bar_t = sigmoid(-gamma_t).
+
+  - Network: backbone(X_t, sigma) predicts epsilon_theta(X_t, t)
+    (same shape as X_t).
+
+  - Training loss (our "NLL"): standard DDPM ε-prediction loss:
+      E_t,eps [ || eps - eps_theta(X_t, t) ||^2 ].
+  """
+
+  def __init__(self, config, tokenizer):
+    # vocab_size comes from tokenizer directly
+    super().__init__(config, tokenizer,
+                     vocab_size=tokenizer.vocab_size)
+    # Diffusion schedule in gamma-space (like Duo)
+    self.gamma_min = self.config.algo.gamma_min
+    self.gamma_max = self.config.algo.gamma_max
+    # Number of diffusion steps to use for sampling
+    # (can share with Duo's T if you like)
+    self.T = getattr(self.config.algo, 'num_diffusion_steps',
+                     getattr(self.config, 'T', 1000))
+
+    self.save_hyperparameters()
+    self._validate_configuration()
+
+  def _sample_t(self, batch_size, current_accumulation_step=None):
+    """Sample continuous time t ~ Uniform(eps, 1 - eps).
+
+    This mimics the simple usage in Duo's nll functions without
+    importance sampling. If you want identical behavior to DUO_BASE,
+    you can copy its _sample_t implementation instead.
+    """
+    del current_accumulation_step
+    eps = float(self.config.training.sampling_eps)
+    # shape [batch_size], on correct device
+    t = torch.rand(batch_size, device=self.device)
+    t = t * (1.0 - 2.0 * eps) + eps
+    return t
+
+  def _validate_configuration(self):
+    # For a continuous diffusion, time conditioning should be on.
+    assert self.config.algo.time_conditioning, (
+      "GaussianLogitDiffusion expects time conditioning to be enabled "
+      "(config.algo.time_conditioning = True).")
+    # No separate prior model
+    assert self.config.prior.type == 'none'
+
+  # -------------------------
+  # Utility: schedule + noise
+  # -------------------------
+
+  def _gamma_from_t(self, t):
+    """
+    Map continuous t in [0, 1] to gamma_t linearly.
+    t: shape [B]
+    returns: gamma_t shape [B]
+    """
+    return self.gamma_min + t * (self.gamma_max - self.gamma_min)
+
+  def _alpha_bar_from_gamma(self, gamma_t):
+    """
+    alpha_bar_t = sigmoid(-gamma_t)
+    sqrt(alpha_bar_t) and sqrt(1 - alpha_bar_t) are used in q(x_t | x_0).
+    """
+    return torch.sigmoid(-gamma_t)
+
+  def _q_xt_gaussian(self, x0_one_hot, gamma_t):
+    """
+    Forward Gaussian corruption:
+      X_t = sqrt(alpha_bar_t) * X0 + sqrt(1 - alpha_bar_t) * eps
+    x0_one_hot: [B, L, V]
+    gamma_t: [B]
+    returns: X_t [B, L, V]
+    """
+    assert gamma_t.ndim == 1
+    assert x0_one_hot.ndim == 3
+
+    alpha_bar_t = self._alpha_bar_from_gamma(gamma_t)  # [B]
+    sqrt_ab = alpha_bar_t.sqrt().view(-1, 1, 1)
+    sqrt_one_minus_ab = (1.0 - alpha_bar_t).sqrt().view(-1, 1, 1)
+
+    eps = torch.randn_like(x0_one_hot)
+    x_t = sqrt_ab * x0_one_hot + sqrt_one_minus_ab * eps
+    return x_t, eps
+
+  # -------------------------
+  # TrainerBase plumbing
+  # -------------------------
+
+  def _process_model_input(self, x0, valid_tokens):
+    """
+    For this continuous diffusion, we just use x0 directly as both
+    input_tokens and output_tokens for TrainerBase bookkeeping.
+    """
+    # input_tokens: used for building X0 in nll
+    # output_tokens: not needed, but we keep shape consistent
+    return x0, x0, valid_tokens
+
+  def _process_sigma(self, sigma):
+    """
+    TrainerBase sometimes calls _process_sigma before passing it
+    into the backbone. For this class, we treat `sigma` as our
+    time-conditioning scalar (e.g., gamma_t or t itself), so we
+    just return it unchanged.
+    """
+    return sigma
+
+  # -------------------------
+  # Core diffusion loss (ε prediction)
+  # -------------------------
+
+  def nll(self, input_tokens, output_tokens,
+          current_accumulation_step=None, train_mode=True):
+    """
+    Continuous diffusion "NLL": DDPM-style ε-prediction loss.
+
+    Args:
+      input_tokens: [B, L] integer tokens x0
+      output_tokens: ignored
+      current_accumulation_step: for multi-GPU grad accumulation
+      train_mode: unused (kept for API compatibility)
+
+    Returns:
+      loss_per_token: [B, L] (summing over vocab, averaging over eps dim)
+    """
+    del output_tokens, train_mode
+
+    device = self.device
+    x0 = input_tokens.to(device)                  # [B, L]
+    B, L = x0.shape
+
+    # Sample continuous time t ~ U(0,1)
+    t = self._sample_t(B, current_accumulation_step)  # [B], defined in TrainerBase
+    gamma_t = self._gamma_from_t(t)                  # [B]
+
+    # One-hot encode tokens
+    x0_one_hot = F.one_hot(x0, self.vocab_size).to(self.dtype)
+
+    # Forward diffusion: get x_t and the true noise eps
+    x_t, eps = self._q_xt_gaussian(x0_one_hot, gamma_t)  # [B,L,V] each
+
+    # Time-conditioning variable (you can choose gamma_t or t; here gamma_t)
+    sigma = gamma_t.unsqueeze(-1)  # [B,1]
+
+    # Predict epsilon from x_t
+    # backbone should return same shape as x_t: [B, L, V]
+    eps_theta = self.backbone(x_t, self._process_sigma(sigma))
+
+    if self.config.training.loss_precision == 'float64':
+      eps = eps.to(torch.float64)
+      eps_theta = eps_theta.to(torch.float64)
+
+    # Standard DDPM ε-prediction loss (per token, summed over vocab dim)
+    # We use 0.5 * ||eps - eps_theta||^2 to match typical continuous diffusion.
+    diff = eps_theta - eps
+    mse_per_vocab = 0.5 * diff.pow(2)                  # [B, L, V]
+    loss_per_token = mse_per_vocab.sum(dim=-1)         # [B, L]
+
+    return loss_per_token
+
+  # -------------------------
+  # Sampling (DDIM-style, argmax at the end)
+  # -------------------------
+
+  @torch.no_grad()
+  def generate_samples(self, num_samples, num_steps=None, **kwargs):
+    """
+    DDIM-like sampler in logit space, followed by argmax at the end.
+
+    - Start from Gaussian noise X_T ~ N(0, I).
+    - Integrate backwards using epsilon prediction.
+    - At final step, take argmax over vocab for each position.
+
+    Args:
+      num_samples: number of sequences to generate.
+      num_steps: number of diffusion steps (default: self.T).
+
+    Returns:
+      tokens: [num_samples, L] int32 tensor of generated tokens.
+    """
+    del kwargs
+    device = self.device
+    if num_steps is None:
+      num_steps = self.T
+
+    # Sequence length = num_tokens used in TrainerBase
+    L = self.num_tokens
+    V = self.vocab_size
+
+    # Initialize from standard Gaussian
+    x = torch.randn(num_samples, L, V, device=device, dtype=self.dtype)
+
+    # Build a fixed time schedule t_0=0, t_T=1
+    # We'll step from i = num_steps ... 1
+    t_values = torch.linspace(0., 1., steps=num_steps + 1, device=device)
+    gamma_values = self._gamma_from_t(t_values)              # [num_steps+1]
+    alpha_bar = self._alpha_bar_from_gamma(gamma_values)     # [num_steps+1]
+    sqrt_alpha_bar = alpha_bar.sqrt()
+    sqrt_one_minus_alpha_bar = (1. - alpha_bar).sqrt()
+
+    for i in range(num_steps, 0, -1):
+      # Current and previous time indices
+      gamma_t = gamma_values[i]                # scalar
+      ab_t = alpha_bar[i]
+      sqrt_ab_t = sqrt_alpha_bar[i]
+      sqrt_1m_t = sqrt_one_minus_alpha_bar[i]
+
+      # Time conditioning: broadcast gamma_t over batch
+      sigma = gamma_t.expand(num_samples)      # [B]
+      sigma = sigma.unsqueeze(-1)             # [B, 1]
+
+      # Predict epsilon at time t
+      eps_theta = self.backbone(x, self._process_sigma(sigma))
+
+      # Predict x0 from x_t and eps_theta:
+      # x0_pred = (x_t - sqrt(1 - alpha_bar_t) * eps_theta) / sqrt(alpha_bar_t)
+      sqrt_ab_t_b = sqrt_ab_t.view(1, 1, 1)
+      sqrt_1m_t_b = sqrt_1m_t.view(1, 1, 1)
+      x0_pred = (x - sqrt_1m_t_b * eps_theta) / (sqrt_ab_t_b + 1e-8)
+
+      if i > 1:
+        # DDIM update (eta = 0) to avoid additional noise:
+        # x_{t-1} = sqrt(alpha_bar_{t-1}) * x0_pred
+        #           + sqrt(1 - alpha_bar_{t-1}) * eps_theta
+        ab_prev = alpha_bar[i - 1]
+        sqrt_ab_prev = sqrt_alpha_bar[i - 1]
+        sqrt_1m_prev = sqrt_one_minus_alpha_bar[i - 1]
+
+        sqrt_ab_prev_b = sqrt_ab_prev.view(1, 1, 1)
+        sqrt_1m_prev_b = sqrt_1m_prev.view(1, 1, 1)
+
+        x = sqrt_ab_prev_b * x0_pred + sqrt_1m_prev_b * eps_theta
+      else:
+        # Final step: just take predicted x0
+        x = x0_pred
+
+    # Decode by argmax over vocab dimension
+    tokens = x.argmax(dim=-1)   # [num_samples, L]
+    return tokens

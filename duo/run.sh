@@ -33,8 +33,9 @@ mkdir -p /project/flame/mananaga/duo_checkpoints
 # `checkpointing.save_dir` explicitly.
 
 python -u -m main \
-  loader.batch_size=32 \
-  loader.eval_batch_size=32 \
+  loader.batch_size=16 \
+  loader.eval_batch_size=16 \
+  loader.num_workers=8 \
   data=openwebtext-split \
   data.cache_dir=/project/flame/mananaga/duo_data \
   checkpointing.save_dir=/project/flame/mananaga/duo_checkpoints \

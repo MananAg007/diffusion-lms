@@ -231,6 +231,8 @@ def main(config):
     diffusion_model = algo.DUO
   elif config.algo.name == 'distillation':
     diffusion_model = algo.Distillation
+  elif config.algo.name == 'gaussian_logit_diffusion':
+    diffusion_model = algo.GaussianLogitDiffusion
   elif config.algo.name == 'ot-finetune':
     diffusion_model = algo.OptimalTransportFinetune
   else:

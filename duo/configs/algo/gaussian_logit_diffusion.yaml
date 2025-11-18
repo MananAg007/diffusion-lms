@@ -1,0 +1,12 @@
+name: gaussian_logit_diffusion
+backbone: dit  # dit / dimamba / hf_dit
+parameterization: mean
+time_conditioning: True
+T: 0  # 0 (continuous time) / 1000
+subs_masking: False
+causal_attention: False
+ignore_bos: False
+gamma_min: -3.5
+gamma_max: -1.75
+num_diffusion_steps: 1000  # Number of diffusion steps for sampling
+
