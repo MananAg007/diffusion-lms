@@ -30,8 +30,8 @@ mkdir -p /project/flame/mananaga/tess_inference_outputs
 
 # Run inference with MLM (masked language modeling)
 # Update model_name_or_path to point to your trained checkpoint
-python -u run_mlm.py \
-    --model_name_or_path <path_to_checkpoint> \
+# Using accelerate launch for cleaner inference setup
+accelerate launch --config_file configs/accelerate_1_gpu.yaml run_mlm.py \
     --do_eval \
     --output_dir /project/flame/mananaga/tess_inference_outputs \
     --max_eval_samples 100 \

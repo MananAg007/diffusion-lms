@@ -19,6 +19,11 @@ echo "Running on node: $SLURMD_NODENAME"
 # Set environment variables
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
+# Fix for Intel JIT symbol error (iJIT_NotifyEvent undefined symbol)
+# Alternative: uncomment if the above doesn't work
+# export LD_PRELOAD=""
+# export MKL_THREADING_LAYER=GNU
+
 # Activate conda environment
 source /project/flame/mananaga/miniconda3/etc/profile.d/conda.sh && conda activate sdlm
 
