@@ -22,6 +22,7 @@ class DLLMOutput:
     pad_token_id: Optional[int] = None
     decoding_order: Optional[torch.Tensor] = None
     decoding_order_corrs: Optional[dict] = None
+    saved_logits_data: Optional[list] = None  # Saved logits at different prediction horizons
 
     @property
     def input_length(self):

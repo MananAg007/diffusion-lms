@@ -46,18 +46,28 @@ def build_config_list(base_config, block_lengths=None, all_tasks=False):
     if max_tokens is None:
         raise ValueError("base_config must have 'generation.max_tokens' specified")
     
+    # Check if save_logits is enabled (requires block_length=1)
+    save_logits = base_config.get('generation', {}).get('save_logits', False)
+    
     # If block_lengths not specified, use powers of 2 up to max_tokens
     if block_lengths is None:
-        block_lengths = []
-        bl = 1
-        while bl <= max_tokens:
-            block_lengths.append(bl)
-            bl *= 2
+        if save_logits:
+            # save_logits only works with block_length=1
+            block_lengths = [1]
+            print("Note: save_logits=True detected, using only block_length=1")
+        else:
+            block_lengths = []
+            bl = 1
+            while bl <= max_tokens:
+                block_lengths.append(bl)
+                bl *= 2
     
     # Validate block_lengths
     for bl in block_lengths:
         if max_tokens % bl != 0:
             raise ValueError(f"max_tokens ({max_tokens}) must be divisible by block_length ({bl})")
+        if save_logits and bl != 1:
+            raise ValueError(f"save_logits=True requires block_length=1, but got block_length={bl}")
     
     # Determine which tasks to use
     if all_tasks:
@@ -179,19 +189,26 @@ Examples:
         max_tokens = base_config.get('generation', {}).get('max_tokens', '?')
         print(f"  max_tokens: {max_tokens}")
         
+        # Check if save_logits is enabled
+        save_logits = base_config.get('generation', {}).get('save_logits', False)
+        
         # Determine block lengths
         if args.block_lengths:
             block_lengths = args.block_lengths
             print(f"  block_lengths (custom): {block_lengths}")
         else:
-            # Calculate default
-            bl_list = []
-            bl = 1
-            while bl <= max_tokens:
-                bl_list.append(bl)
-                bl *= 2
-            block_lengths = bl_list
-            print(f"  block_lengths (auto): {block_lengths}")
+            # Let build_config_list handle defaults (especially for save_logits)
+            block_lengths = None
+            if save_logits:
+                print(f"  block_lengths (auto): [1] (restricted due to save_logits=True)")
+            else:
+                # Calculate default for display
+                bl_list = []
+                bl = 1
+                while bl <= max_tokens:
+                    bl_list.append(bl)
+                    bl *= 2
+                print(f"  block_lengths (auto): {bl_list}")
         
         # Build config list
         print(f"Generating configs...")

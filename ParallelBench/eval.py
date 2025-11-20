@@ -21,6 +21,13 @@ from utils.perf_utils import pop_perf_stats
 from utils.resouce_manager import ResourceManager
 from utils.utils import seed_everything
 
+try:
+    from safetensors.torch import save_file as safetensors_save
+    SAFETENSORS_AVAILABLE = True
+except ImportError:
+    SAFETENSORS_AVAILABLE = False
+    print("Warning: safetensors not available. Install with: pip install safetensors")
+
 
 resource_manager = ResourceManager()
 
@@ -45,7 +52,10 @@ class Evaluator:
     def process_sample(self, index):
         sample = self.dataset[index]
         input, label, data_metadata = sample["input"], sample.get("label", None), sample.get("metadata", {})
-        model_output = self.model.generate(**input, gen_config=self.gen_config, output_history=True)
+        
+        # Pass question_id from metadata if available
+        question_id = data_metadata.get("id", index)
+        model_output = self.model.generate(**input, gen_config=self.gen_config, output_history=True, question_id=question_id)
 
         sample_metrics, _ = self._compute_metrics([model_output.output], [label])
 
@@ -66,7 +76,7 @@ class Evaluator:
             **{f"perf/{k}": v for k, v in perf_stats.items()},
         }, index)
 
-        return {
+        result = {
             "input": input["messages"], 
             "output": model_output.output, 
             "output_full": model_output.output_full,
@@ -75,6 +85,12 @@ class Evaluator:
             **{f"data/metadata/{k}": v for k, v in data_metadata.items()},
             "history": model_output.history,
         }
+        
+        # Add saved_logits_data if available
+        if model_output.saved_logits_data is not None:
+            result["saved_logits_data"] = model_output.saved_logits_data
+        
+        return result
 
     def generate(self):
         self.model = resource_manager.load_model(**self.model_cfg)
@@ -120,6 +136,26 @@ class Evaluator:
         self.logger.log_table("results", df)
 
         self.output_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Handle saved_logits_data: save separately in safetensors format
+        logits_file = None
+        if any('saved_logits_data' in output for output in outputs):
+            logits_file = self.output_file.with_suffix('.safetensors')
+            self._save_logits_data(outputs, logits_file)
+            
+            # Remove saved_logits_data from outputs before JSON serialization
+            # Keep only metadata reference
+            for output in outputs:
+                if 'saved_logits_data' in output:
+                    logits_data = output['saved_logits_data']
+                    # Replace with metadata summary
+                    output['saved_logits_metadata'] = {
+                        'num_entries': len(logits_data) if logits_data else 0,
+                        'logits_file': str(logits_file.name),
+                        'horizons': list(set(entry['horizon'] for entry in logits_data)) if logits_data else []
+                    }
+                    del output['saved_logits_data']
+        
         with gzip.open(self.output_file, "wt") as f:
             json.dump({
                 "cfg_file": self.cfg_file,
@@ -135,6 +171,80 @@ class Evaluator:
         self.logger.finish()
 
         print(metrics)
+        if logits_file:
+            print(f"Saved logits data to: {logits_file}")
+
+    def _save_logits_data(self, outputs, logits_file):
+        """Save logits data to safetensors format."""
+        if not SAFETENSORS_AVAILABLE:
+            print("Warning: safetensors not available, saving logits as .pt file instead")
+            logits_file = logits_file.with_suffix('.pt')
+            self._save_logits_data_torch(outputs, logits_file)
+            return
+        
+        # Collect all logits tensors and metadata
+        tensors_dict = {}
+        metadata_list = []
+        
+        for sample_idx, output in enumerate(outputs):
+            if 'saved_logits_data' not in output:
+                continue
+            
+            logits_data = output['saved_logits_data']
+            if not logits_data:
+                continue
+            
+            # Save each logits entry with a unique key
+            for entry_idx, entry in enumerate(logits_data):
+                key = f"sample_{sample_idx}_entry_{entry_idx}"
+                tensors_dict[key] = entry['logits']
+                
+                # Save metadata (without the tensor)
+                metadata_list.append({
+                    'key': key,
+                    'sample_idx': sample_idx,
+                    'entry_idx': entry_idx,
+                    'question_id': entry['question_id'],
+                    'timestep': entry['timestep'],
+                    'horizon': entry['horizon'],
+                    'absolute_position': entry['absolute_position'],
+                    'relative_position': entry['relative_position'],
+                    'last_unmasked_position': entry['last_unmasked_position'],
+                })
+        
+        if tensors_dict:
+            # Save tensors to safetensors
+            safetensors_save(tensors_dict, str(logits_file))
+            
+            # Save metadata to companion JSON file
+            metadata_file = logits_file.with_suffix('.metadata.json')
+            with open(metadata_file, 'w') as f:
+                json.dump(metadata_list, f, indent=2)
+            
+            print(f"Saved {len(tensors_dict)} logits tensors to {logits_file}")
+            print(f"Saved metadata to {metadata_file}")
+    
+    def _save_logits_data_torch(self, outputs, logits_file):
+        """Fallback: save logits data using torch.save."""
+        all_logits_data = []
+        
+        for sample_idx, output in enumerate(outputs):
+            if 'saved_logits_data' not in output:
+                continue
+            
+            logits_data = output['saved_logits_data']
+            if not logits_data:
+                continue
+            
+            for entry in logits_data:
+                all_logits_data.append({
+                    'sample_idx': sample_idx,
+                    **entry
+                })
+        
+        if all_logits_data:
+            torch.save(all_logits_data, logits_file)
+            print(f"Saved {len(all_logits_data)} logits entries to {logits_file}")
 
     def _update_decoding_order(self, outputs):
         from model.model_utils import compute_decoding_order_correlation_from_history

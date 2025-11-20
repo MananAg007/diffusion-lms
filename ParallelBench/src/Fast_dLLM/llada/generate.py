@@ -219,7 +219,8 @@ def get_num_transfer_tokens(mask_index, steps):
 
 @ torch.no_grad()
 def generate(model, prompt, steps=128, gen_length=128, block_length=128, temperature=0.,
-             remasking='low_confidence', mask_id=126336, threshold=None, factor=None, alg_temp=0.0, output_history=False, **kwargs):
+             remasking='low_confidence', mask_id=126336, threshold=None, factor=None, alg_temp=0.0, 
+             output_history=False, save_logits=False, question_id=None, **kwargs):
     '''
     Args:
         model: Mask predictor.
@@ -231,8 +232,14 @@ def generate(model, prompt, steps=128, gen_length=128, block_length=128, tempera
         cfg_scale: Unsupervised classifier-free guidance scale.
         remasking: Remasking strategy. 'low_confidence' or 'random'.
         mask_id: The toke id of [MASK] is 126336.
+        save_logits: If True, save logits at 1, 2, 4, 8 steps ahead (only works with block_length=1).
+        question_id: Question ID for tracking (used when save_logits=True).
     '''
+    if save_logits:
+        assert block_length == 1, f"save_logits only works with block_length=1 (autoregressive mode), got block_length={block_length}"
+    
     history = [] if output_history else None
+    saved_logits_data = [] if save_logits else None
     input_length = prompt.shape[1]
     
     x = torch.full((prompt.shape[0], prompt.shape[1] + gen_length), mask_id, dtype=torch.long).to(model.device)
@@ -245,6 +252,8 @@ def generate(model, prompt, steps=128, gen_length=128, block_length=128, tempera
     steps = steps // num_blocks
 
     nfe = 0
+    timestep = 0  # Track global timestep for save_logits
+    
     for num_block in range(num_blocks):
         block_mask_index = (x[:, prompt.shape[1] + num_block * block_length: prompt.shape[1] + (num_block + 1) * block_length] == mask_id)
         num_transfer_tokens = get_num_transfer_tokens(block_mask_index, steps)
@@ -254,17 +263,67 @@ def generate(model, prompt, steps=128, gen_length=128, block_length=128, tempera
             mask_index = (x == mask_id)
             logits = model(x).logits
             mask_index[:, prompt.shape[1] + (num_block + 1) * block_length:] = 0
+            
+            # Save logits at different prediction horizons (before updating x)
+            if save_logits:
+                # Find the last unmasked position in the generation region
+                gen_region_start = prompt.shape[1]
+                gen_region_end = prompt.shape[1] + gen_length
+                
+                # Get mask status for generation region
+                gen_mask = (x[:, gen_region_start:gen_region_end] == mask_id)  # (batch, gen_length)
+                
+                # For each batch (though typically batch=1)
+                for b in range(x.shape[0]):
+                    # Find last unmasked position in generation region (0-indexed within generation)
+                    unmasked_positions = torch.where(~gen_mask[b])[0]
+                    
+                    if len(unmasked_positions) > 0:
+                        last_unmasked_pos = unmasked_positions[-1].item()  # position relative to gen_region_start
+                    else:
+                        last_unmasked_pos = -1  # No tokens unmasked yet
+                    
+                    # Save logits for positions 1, 2, 4, 8 steps ahead
+                    for horizon in [1, 2, 4, 8]:
+                        target_pos = last_unmasked_pos + horizon  # position relative to gen_region_start
+                        absolute_pos = gen_region_start + target_pos  # absolute position in x
+                        
+                        # Check if target position exists and is still masked
+                        if target_pos < gen_length and absolute_pos < gen_region_end:
+                            if gen_mask[b, target_pos]:  # position is still masked
+                                # Save the logits for this position
+                                # logits shape: (batch, seq_len, vocab_size)
+                                position_logits = logits[b, absolute_pos, :].cpu().clone()
+                                
+                                # Save metadata and logits separately
+                                # Metadata goes in JSON, logits saved separately in safetensors
+                                saved_logits_data.append({
+                                    'question_id': question_id,
+                                    'timestep': timestep,
+                                    'horizon': horizon,
+                                    'absolute_position': absolute_pos,
+                                    'relative_position': target_pos,  # position within generation region
+                                    'last_unmasked_position': last_unmasked_pos,
+                                    'logits': position_logits,  # Keep as tensor for safetensors
+                                })
+            
             if factor is None:
                 x0, transfer_index = get_transfer_index(logits, temperature, remasking, mask_index, x, num_transfer_tokens[:, i] if threshold is None else None, threshold)
             else:
                 x0, transfer_index = get_transfer_index_dynamic(logits, temperature, remasking, mask_index, x, None, factor)
             x[transfer_index] = x0[transfer_index]
+            
+            timestep += 1
             i += 1
             if history is not None:
                 history.append(x[:, input_length:].cpu().clone())
             if (x[:, prompt.shape[1] + num_block * block_length: prompt.shape[1] + (num_block + 1) * block_length] == mask_id).sum() == 0:
                 break
-    return x, nfe, history
+    
+    if save_logits:
+        return x, nfe, history, saved_logits_data
+    else:
+        return x, nfe, history
 
 
 

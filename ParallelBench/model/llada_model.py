@@ -203,6 +203,9 @@ class LladaGenerationConfig:
     beam_size: int = 32  # Beam size for beam search in compatibility checking
     max_joint: int = 32  # Maximum number of positions to decide jointly in beam search
 
+    # logits saving
+    save_logits: bool = False  # Save logits at 1, 2, 4, 8 steps ahead (only works with block_length=1)
+
     @property
     def num_blocks(self):
         return self.max_tokens // self.block_length
@@ -214,6 +217,7 @@ class LladaGenerationConfig:
         assert self.remasking in list(LladaRemaskingStrategy), f"Remasking must be one of {list(LladaRemaskingStrategy)}, got {self.remasking}"
         assert not (self.accel_framework != "fast_dllm" and self.fast_dllm_use_cache)
         assert self.score_function in ["grammar", "perplexity", "ngram"], f"score_function must be 'grammar', 'perplexity', or 'ngram', got {self.score_function}"
+        assert not (self.save_logits and self.block_length != 1), f"save_logits only works with block_length=1 (autoregressive mode), got block_length={self.block_length}"
 
     def is_mdpo_rcr(self):
         return self.remasking == LladaRemaskingStrategy.LOW_CONFIDENCE_RCR
@@ -233,7 +237,8 @@ class LladaGenerationConfig:
             score_function=self.score_function,
             ngram_size=self.ngram_size,
             beam_size=self.beam_size,
-            max_joint=self.max_joint
+            max_joint=self.max_joint,
+            save_logits=self.save_logits
         )
 
         if self.remasking in [
@@ -340,14 +345,24 @@ class LladaModel(BaseModel):
         raise NotImplementedError
 
     @measure_time_mem("generate")
-    def model_generate(self, input_ids, gen_config, output_history=False, output0_ids=None):
+    def model_generate(self, input_ids, gen_config, output_history=False, output0_ids=None, question_id=None):
         with insert_import_path(FAST_DLLM_PATH):
             from generate import generate as generate_no_cache, generate_with_prefix_cache, generate_with_dual_cache, generate_with_compatibility
 
         gen_kwargs = gen_config.to_generate_kwargs()
+        
+        # Add question_id to gen_kwargs if save_logits is enabled
+        if gen_config.save_logits:
+            gen_kwargs['question_id'] = question_id
 
         # Check if compatibility checking is enabled (pool_size > 1)
         use_compatibility = gen_config.pool_size > 1
+
+        if gen_config.save_logits:
+            assert self.accel_framework is None, "save_logits is not supported with fast-dllm acceleration"
+            assert not gen_config.is_mdpo_rcr(), "save_logits is not supported with MDPO-RCR"
+            assert not gen_config.is_remdm(), "save_logits is not supported with ReMDM"
+            assert not use_compatibility, "save_logits is not supported with compatibility checking"
 
         if gen_config.is_mdpo_rcr():
             assert self.accel_framework is None, "MDPO-RCR is not supported with fast-dllm"
@@ -377,11 +392,19 @@ class LladaModel(BaseModel):
             generate_fn = generate_no_cache
 
         if output0_ids is not None:
-            return generate_fn(self.model, input_ids, mask_id=self.mask_id, **gen_kwargs, output_history=output_history, output0_ids=output0_ids)
+            result = generate_fn(self.model, input_ids, mask_id=self.mask_id, **gen_kwargs, output_history=output_history, output0_ids=output0_ids)
         else:
-            return generate_fn(self.model, input_ids, mask_id=self.mask_id, **gen_kwargs, output_history=output_history)
+            result = generate_fn(self.model, input_ids, mask_id=self.mask_id, **gen_kwargs, output_history=output_history)
+        
+        # Handle different return formats based on save_logits
+        if gen_config.save_logits:
+            # When save_logits=True, generate returns (x, nfe, history, saved_logits_data)
+            return result
+        else:
+            # Standard return (x, nfe, history)
+            return result
 
-    def generate(self, messages, output_prefix=None, gen_config=None, output_history=False):
+    def generate(self, messages, output_prefix=None, gen_config=None, output_history=False, question_id=None):
         if isinstance(messages, list):
             prompt = self.tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
         else:
@@ -397,7 +420,15 @@ class LladaModel(BaseModel):
         else:
             output0_ids = None
 
-        input_output_ids, nfe, history = self.model_generate(input_ids, gen_config, output_history=output_history, output0_ids=output0_ids)
+        result = self.model_generate(input_ids, gen_config, output_history=output_history, output0_ids=output0_ids, question_id=question_id)
+        
+        # Handle different return formats based on save_logits
+        if gen_config.save_logits:
+            input_output_ids, nfe, history, saved_logits_data = result
+        else:
+            input_output_ids, nfe, history = result
+            saved_logits_data = None
+        
         output_ids = input_output_ids[:, input_ids.shape[1]:]
 
         output = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0]
@@ -415,4 +446,5 @@ class LladaModel(BaseModel):
             history=decode_history(self.tokenizer, history),
             decoding_order=decoding_order,
             decoding_order_corrs=decoding_order_corrs,
+            saved_logits_data=saved_logits_data,
         )

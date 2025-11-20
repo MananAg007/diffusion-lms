@@ -3,7 +3,7 @@
 #SBATCH --output=/home/mananaga/logs/%j/.out
 #SBATCH --error=/home/mananaga/logs/%j/.out
 #SBATCH --time=48:00:00
-#SBATCH --partition=preempt
+#SBATCH --partition=general
 #SBATCH --gres=gpu:1
 #SBATCH --mem=128G
 #SBATCH -c 4

@@ -10,6 +10,7 @@ model:
 dataset:
   dataset_name: parallel_bench
   task: paraphrase_summarize/chatgpt-paraphrases
+  num_samples: 5
 
 generation:
   temperature: 0.0
@@ -22,4 +23,5 @@ generation:
   score_function: grammar
   beam_size: 1
   max_joint: 128
+  save_logits: true
 
