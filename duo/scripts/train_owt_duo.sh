@@ -1,9 +1,8 @@
 #!/bin/bash
 #SBATCH --partition=general
 #SBATCH --job-name=duo
-#SBATCH --gres=gpu:4
-#SBATCH --constraint=VRAM_48GB
-#SBATCH --cpus-per-task=20
+#SBATCH --gres=gpu:A6000:4
+#SBATCH --cpus-per-task=50
 #SBATCH --mem=40G
 #SBATCH --time=48:00:00
 #SBATCH --output=/home/mananaga/logs/%j/.out
@@ -24,17 +23,21 @@ source ~/miniconda/etc/profile.d/conda.sh && conda activate duo
 # Change to the project directory where main.py is located
 cd /home/mananaga/diffusion-lms/duo
 
-# Create cache directory if it doesn't exist
+# Create cache and checkpoint directories if they don't exist
 mkdir -p /data/user_data/$USER/duo_data
+mkdir -p /data/user_data/$USER/duo_checkpoints
 
 # To enable preemption re-loading, set `hydra.run.dir` or 
 # `checkpointing.save_dir` explicitly.
 
 python -u -m main \
-  loader.batch_size=32 \
-  loader.eval_batch_size=32 \
+  loader.batch_size=8 \
+  loader.eval_batch_size=8 \
   data=openwebtext-split \
   data.cache_dir=/data/user_data/$USER/duo_data \
+  checkpointing.save_dir=/data/user_data/$USER/duo_checkpoints \
+  callbacks.checkpoint_every_n_steps.save_top_k=0 \
+  callbacks.checkpoint_every_n_steps.save_last=false \
   wandb.name=duo-owt \
   model=small \
   algo=duo \

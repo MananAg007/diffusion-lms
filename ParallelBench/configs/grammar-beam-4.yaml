@@ -1,0 +1,25 @@
+# Base configuration for n-gram debugging experiments
+# Use build_config_list.py to generate the full _list.yaml file
+
+skip_metrics: false
+
+model:
+  model_name: GSAI-ML/LLaDA-8B-Instruct
+  accel_framework: null
+
+dataset:
+  dataset_name: parallel_bench
+  task: paraphrase_summarize/chatgpt-paraphrases
+
+generation:
+  temperature: 0.0
+  max_tokens: 64
+  # block_length and steps will be auto-generated
+  fast_dllm_threshold: null
+  fast_dllm_factor: null
+  remasking: low_confidence
+  pool_size: 2
+  score_function: grammar
+  beam_size: 4
+  max_joint: 128
+

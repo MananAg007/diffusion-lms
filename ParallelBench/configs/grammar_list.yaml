@@ -1,0 +1,599 @@
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: paraphrase_summarize/chatgpt-paraphrases
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 1
+    steps: 64
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: paraphrase_summarize/chatgpt-paraphrases
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 2
+    steps: 32
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: paraphrase_summarize/chatgpt-paraphrases
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 4
+    steps: 16
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: paraphrase_summarize/chatgpt-paraphrases
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 8
+    steps: 8
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: paraphrase_summarize/chatgpt-paraphrases
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 16
+    steps: 4
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: paraphrase_summarize/chatgpt-paraphrases
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 32
+    steps: 2
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: paraphrase_summarize/chatgpt-paraphrases
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 64
+    steps: 1
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: paraphrase_summarize/samsum
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 1
+    steps: 64
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: paraphrase_summarize/samsum
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 2
+    steps: 32
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: paraphrase_summarize/samsum
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 4
+    steps: 16
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: paraphrase_summarize/samsum
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 8
+    steps: 8
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: paraphrase_summarize/samsum
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 16
+    steps: 4
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: paraphrase_summarize/samsum
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 32
+    steps: 2
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: paraphrase_summarize/samsum
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 64
+    steps: 1
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/easy
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 1
+    steps: 64
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/easy
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 2
+    steps: 32
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/easy
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 4
+    steps: 16
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/easy
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 8
+    steps: 8
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/easy
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 16
+    steps: 4
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/easy
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 32
+    steps: 2
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/easy
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 64
+    steps: 1
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/medium
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 1
+    steps: 64
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/medium
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 2
+    steps: 32
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/medium
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 4
+    steps: 16
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/medium
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 8
+    steps: 8
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/medium
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 16
+    steps: 4
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/medium
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 32
+    steps: 2
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/medium
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 64
+    steps: 1
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/hard
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 1
+    steps: 64
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/hard
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 2
+    steps: 32
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/hard
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 4
+    steps: 16
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/hard
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 8
+    steps: 8
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/hard
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 16
+    steps: 4
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/hard
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 32
+    steps: 2
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar
+- skip_metrics: false
+  model:
+    model_name: GSAI-ML/LLaDA-8B-Instruct
+    accel_framework: null
+  dataset:
+    dataset_name: parallel_bench
+    task: words_to_sentence/hard
+  generation:
+    temperature: 0.0
+    max_tokens: 64
+    block_length: 64
+    steps: 1
+    fast_dllm_threshold: null
+    fast_dllm_factor: null
+    remasking: low_confidence
+    pool_size: 2
+    score_function: grammar

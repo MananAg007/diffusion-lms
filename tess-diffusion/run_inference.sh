@@ -1,7 +1,5 @@
 #!/bin/bash
-#SBATCH --partition=flame
-#SBATCH --qos=flame-8gpu-b_qos
-#SBATCH --account=aditirag
+#SBATCH --partition=preempt
 #SBATCH --job-name=tess-inference
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=10
@@ -19,21 +17,25 @@ echo "Running on node: $SLURMD_NODENAME"
 # Set environment variables
 export CUDA_VISIBLE_DEVICES=0
 
+module purge                           # clear any default Intel modules
+# re-load only what you really need, e.g.:
+module load cuda/12.1   
+
 # Activate conda environment
-source /project/flame/mananaga/miniconda3/etc/profile.d/conda.sh && conda activate sdlm
+source /home/mananaga/miniconda/etc/profile.d/conda.sh && conda activate sdlm
 
 # Change to the project directory
 cd /home/mananaga/diffusion-lms/tess-diffusion
 
 # Create output directory if it doesn't exist
-mkdir -p /project/flame/mananaga/tess_inference_outputs
+mkdir -p /data/user_data/mananaga/tess_inference_outputs
 
 # Run inference with MLM (masked language modeling)
 # Update model_name_or_path to point to your trained checkpoint
 # Using accelerate launch for cleaner inference setup
 accelerate launch --config_file configs/accelerate_1_gpu.yaml run_mlm.py \
     --do_eval \
-    --output_dir /project/flame/mananaga/tess_inference_outputs \
+    --output_dir /data/user_data/mananaga/tess_inference_outputs \
     --max_eval_samples 100 \
     --max_seq_length 256 \
     --truncation_length 56 \
