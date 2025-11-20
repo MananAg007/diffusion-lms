@@ -237,7 +237,7 @@ def main():
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="configs/grammar-beam-8_list",
+        default="configs/baseline_list",
         help="Path to the output directory containing experiment results (e.g., outputs/baseline_list)"
     )
     parser.add_argument(

@@ -357,7 +357,7 @@ def main():
         "--experiments",
         type=str,
         nargs="+",
-        default=["baseline", "grammar-beam-1", "grammar-beam-2", "grammar-beam-4", "grammar-beam-8"],
+        default=["baseline"],
         help="List of experiment names (e.g., baseline modified)"
     )
     parser.add_argument(
