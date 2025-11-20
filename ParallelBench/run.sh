@@ -20,7 +20,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 source ~/.bashrc
 conda activate parallelbench
 
-SCRIPT_DIR=/home/mananaga/diverse-data-synthesis/ParallelBench
+SCRIPT_DIR=/home/mananaga/diffusion-lms/ParallelBench
 cd "$SCRIPT_DIR"
 
 GPU_IDS="0"
