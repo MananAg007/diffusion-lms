@@ -18,7 +18,7 @@ export HF_DATASETS_TRUST_REMOTE_CODE=true
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 source ~/.bashrc
-conda activate d1
+conda activate parallelbench
 
 SCRIPT_DIR=/home/mananaga/diverse-data-synthesis/ParallelBench
 cd "$SCRIPT_DIR"
@@ -33,7 +33,7 @@ echo ""
 
 BASE_CONFIG="configs/${1}.yaml"
 CONFIG_LIST="configs/${1}_list.yaml"
-ALL_TASKS=1
+ALL_TASKS=0
 
 
 # Check if output directory already exists
