@@ -1,3 +1,8 @@
-# Ignore config list folders
+# Ignore config list folders and their backups
 configs/*_list/
+configs/*_list.bk/
+configs/*_list.*/
+
+# Ignore safetensors files (large binary files)
+*.safetensors
 

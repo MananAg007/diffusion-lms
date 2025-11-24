@@ -284,7 +284,7 @@ def generate(model, prompt, steps=128, gen_length=128, block_length=128, tempera
                         last_unmasked_pos = -1  # No tokens unmasked yet
                     
                     # Save logits for positions 1, 2, 4, 8 steps ahead
-                    for horizon in [1, 2, 4, 8]:
+                    for horizon in [1, 2, 4, 8, 16]:
                         target_pos = last_unmasked_pos + horizon  # position relative to gen_region_start
                         absolute_pos = gen_region_start + target_pos  # absolute position in x
                         

@@ -6,6 +6,7 @@ For each position and each sample:
 - Compare horizon 2 vs horizon 1
 - Compare horizon 4 vs horizon 1  
 - Compare horizon 8 vs horizon 1
+- Compare horizon 16 vs horizon 1
 Then average across samples.
 
 Usage: python plot_kl_by_horizon.py configs/baseline_list/00000.json.gz
@@ -40,10 +41,10 @@ def compute_kl_by_position_and_horizon(logits_data, max_position=64):
         data_map[sample_idx][position][horizon] = logits
     
     # Compute KL divergence for each horizon vs horizon 1
-    results = {2: {}, 4: {}, 8: {}}
+    results = {2: {}, 4: {}, 8: {}, 16: {}}
     
     for position in range(max_position):
-        for horizon in [2, 4, 8]:
+        for horizon in [2, 4, 8, 16]:
             kl_values = []
             
             for sample_idx in data_map.keys():
@@ -74,10 +75,10 @@ def plot_kl_divergence(results, output_file=None):
     """
     fig, ax = plt.subplots(figsize=(12, 6))
     
-    colors = {2: '#2ecc71', 4: '#3498db', 8: '#e74c3c'}
-    labels = {2: 'Horizon 2 vs 1', 4: 'Horizon 4 vs 1', 8: 'Horizon 8 vs 1'}
+    colors = {2: '#2ecc71', 4: '#3498db', 8: '#e74c3c', 16: '#9b59b6'}
+    labels = {2: 'Horizon 2 vs 1', 4: 'Horizon 4 vs 1', 8: 'Horizon 8 vs 1', 16: 'Horizon 16 vs 1'}
     
-    for horizon in [2, 4, 8]:
+    for horizon in [2, 4, 8, 16]:
         positions = sorted(results[horizon].keys())
         
         if not positions:
@@ -108,7 +109,7 @@ def plot_kl_divergence(results, output_file=None):
                  fontsize=14, pad=20)
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3)
-    ax.set_xlim(0, max(max(results[h].keys()) for h in [2,4,8] if results[h]))
+    ax.set_xlim(0, max(max(results[h].keys()) for h in [2, 4, 8, 16] if results[h]))
     
     plt.tight_layout()
     
@@ -127,7 +128,7 @@ def print_statistics(results):
     print("KL DIVERGENCE STATISTICS BY HORIZON")
     print("="*70)
     
-    for horizon in [2, 4, 8]:
+    for horizon in [2, 4, 8, 16]:
         print(f"\nHorizon {horizon} vs Horizon 1:")
         print("-" * 70)
         

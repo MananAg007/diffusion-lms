@@ -10,7 +10,7 @@ model:
 dataset:
   dataset_name: parallel_bench
   task: paraphrase_summarize/chatgpt-paraphrases
-  num_samples: 5
+  num_samples: 100
 
 generation:
   temperature: 0.0
