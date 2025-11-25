@@ -1,9 +1,7 @@
 #!/bin/bash
-#SBATCH --partition=flame
-#SBATCH --qos=flame-8gpu-b_qos
-#SBATCH --account=aditirag
+#SBATCH --partition=preempt
 #SBATCH --job-name=gidd-train
-#SBATCH --gres=gpu:8
+#SBATCH --gres=gpu:4
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=128G
 #SBATCH --time=48:00:00
@@ -17,28 +15,16 @@ echo "Job submitted from: $SLURM_SUBMIT_DIR"
 echo "Running on node: $SLURMD_NODENAME"
 
 # Set environment variables
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 # Activate conda environment
 source /project/flame/mananaga/miniconda3/etc/profile.d/conda.sh && conda activate gidd
 
 cd /home/mananaga/diffusion-lms/gidd
 
-# Add current directory to PYTHONPATH so Python can find the gidd module
-export PYTHONPATH=/home/mananaga/diffusion-lms/gidd:${PYTHONPATH:-}
-
-# Set HuggingFace cache directory to avoid corrupted cache issues
-# HF_HOME is the main cache directory that transformers and datasets will use
-export HF_HOME=/project/flame/mananaga/.cache/huggingface
-export HF_DATASETS_CACHE=${HF_HOME}/datasets
-
-mkdir -p ${HF_DATASETS_CACHE}
-mkdir -p ${HF_HOME}/transformers  # Ensure transformers cache directory exists
-mkdir -p ${HF_HOME}
-
 mkdir -p /project/flame/mananaga/gidd/outputs
 
-torchrun --nnodes 1 --nproc_per_node 8 gidd/train.py \
+torchrun --nnodes 1 --nproc_per_node 4 gidd/train.py \
     --config-name gidd \
     logging.run_name="'small-gidd+-owt-pu=0.0'" \
     logging.save_dir="/project/flame/mananaga/gidd/outputs"
