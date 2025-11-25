@@ -39,5 +39,6 @@ torchrun --nnodes 1 --nproc_per_node 8 gidd/train.py \
     --config-name gidd \
     logging.run_name="'small-gidd+-owt-pu=0.0'" \
     logging.save_dir="/project/flame/mananaga/gidd/outputs" \
+    logging.wandb_entity="diffusion-lms" \
     data.num_workers=2
 

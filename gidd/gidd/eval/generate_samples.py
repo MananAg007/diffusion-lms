@@ -26,11 +26,12 @@ def main(args):
     model.eval()
 
     samples = []
+    max_length = config.model.max_seq_len
     with tqdm.tqdm(total=args.num_samples, desc="Sampling", dynamic_ncols=True) as pbar:
         with torch.no_grad(), torch.autocast(device.type, dtype=dtype):
             for i in range(0, args.num_samples, args.batch_size):
                 bs = min(args.batch_size, args.num_samples - i)
-                z_t = sampler.generate(bs, args.num_denoising_steps, decode=False, show_progress=False)
+                z_t = sampler.generate(bs, args.num_denoising_steps, max_length=max_length, decode=False, show_progress=False)
                 samples.append(z_t)
                 pbar.update(bs)
     samples = torch.cat(samples, dim=0).cpu()

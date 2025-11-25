@@ -33,6 +33,23 @@ export HF_DATASETS_CACHE=/project/flame/mananaga/.hf_cache/datasets
 export HF_ALLOW_CODE_EVAL=1
 export HF_DATASETS_TRUST_REMOTE_CODE=true
 
+# HuggingFace authentication (for gated models like gemma-2-9b)
+# The token is stored in ~/.cache/huggingface/token after running: huggingface-cli login
+# If HF_TOKEN is set, it will be used. Otherwise, the script will look for the token file.
+if [ -z "$HF_TOKEN" ]; then
+    # Check common locations for HuggingFace token
+    if [ -f ~/.cache/huggingface/token ]; then
+        export HF_TOKEN=$(cat ~/.cache/huggingface/token)
+        echo "Using HuggingFace token from ~/.cache/huggingface/token"
+    elif [ -f ~/.huggingface/token ]; then
+        export HF_TOKEN=$(cat ~/.huggingface/token)
+        echo "Using HuggingFace token from ~/.huggingface/token"
+    else
+        echo "Warning: HF_TOKEN not set and token file not found."
+        echo "Please run 'huggingface-cli login' before submitting this job, or set HF_TOKEN environment variable."
+    fi
+fi
+
 # Default checkpoint path - change this or pass as argument
 CHECKPOINT_PATH=${1:-/project/flame/mananaga/gidd/outputs/latest}
 SAMPLES_PATH=/project/flame/mananaga/gidd/outputs/samples.pt
@@ -54,7 +71,15 @@ python gidd/eval/generate_samples.py \
     batch_size=16
 
 # Step 2: Compute generative perplexity
+# Note: google/gemma-2-9b is a gated model - you need to:
+# 1. Request access at https://huggingface.co/google/gemma-2-9b
+# 2. Run: huggingface-cli login
+# 3. Or set: export HF_TOKEN=your_token
+# Alternative: Use a non-gated model like "meta-llama/Llama-2-7b-hf" (also requires access)
+# or "microsoft/DialoGPT-large" (open, but smaller/less accurate)
 echo "=== Step 2: Computing generative perplexity ==="
+echo "Using reference model: google/gemma-2-9b (requires HuggingFace authentication)"
+
 python gidd/eval/generative_ppl.py \
     samples_path="${SAMPLES_PATH}" \
     model_tokenizer=gpt2 \
