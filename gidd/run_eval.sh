@@ -63,12 +63,12 @@ echo "Metrics will be saved to: ${METRICS_PATH}"
 
 # Step 1: Generate samples from the checkpoint
 echo "=== Step 1: Generating samples ==="
-# python gidd/eval/generate_samples.py \
-#     path="${CHECKPOINT_PATH}" \
-#     samples_path="${SAMPLES_PATH}" \
-#     num_samples=48 \
-#     num_denoising_steps=128 \
-#     batch_size=16
+python gidd/eval/generate_samples.py \
+    path="${CHECKPOINT_PATH}" \
+    samples_path="${SAMPLES_PATH}" \
+    num_samples=48 \
+    num_denoising_steps=128 \
+    batch_size=16
 
 # Step 2: Compute generative perplexity
 # Note: google/gemma-2-9b is a gated model - you need to:

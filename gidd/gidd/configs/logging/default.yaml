@@ -6,3 +6,10 @@ save_freq: 2000
 save_dir: checkpoints
 wandb_entity: null
 wandb_project: null
+# Generative PPL evaluation settings
+gen_ppl_freq: 10000  # How often to compute generative ppl (in steps)
+gen_ppl_num_samples: 48  # Number of samples to generate
+gen_ppl_num_denoising_steps: 128  # Number of denoising steps for generation
+gen_ppl_batch_size: 16  # Batch size for generation
+gen_ppl_reference_model: google/gemma-2-9b  # Reference model for computing ppl
+gen_ppl_enabled: false  # Enable/disable generative ppl during training

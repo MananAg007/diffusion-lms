@@ -32,6 +32,7 @@ export HF_HUB_CACHE=/project/flame/mananaga/.hf_cache/hub
 export HF_DATASETS_CACHE=/project/flame/mananaga/.hf_cache/datasets
 export HF_ALLOW_CODE_EVAL=1
 export HF_DATASETS_TRUST_REMOTE_CODE=true
+export HF_TOKEN=$(cat ~/.cache/huggingface/token)
 
 mkdir -p /project/flame/mananaga/gidd/outputs
 
@@ -40,5 +41,11 @@ torchrun --nnodes 1 --nproc_per_node 8 gidd/train.py \
     logging.run_name="'small-gidd+-owt-pu=0.0'" \
     logging.save_dir="/project/flame/mananaga/gidd/outputs" \
     logging.wandb_entity="diffusion-lms" \
+    logging.gen_ppl_enabled=true \
+    logging.gen_ppl_freq=10000 \
+    logging.gen_ppl_num_samples=48 \
+    logging.gen_ppl_num_denoising_steps=128 \
+    logging.gen_ppl_batch_size=16 \
+    logging.gen_ppl_reference_model="google/gemma-2-9b" \
     data.num_workers=2
 

@@ -8,11 +8,13 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.distributed as dist
+import torch.nn.functional as F
 import hydra
 import tqdm
 import wandb
 from omegaconf import OmegaConf, open_dict
 from torch.nn.parallel import DistributedDataParallel as DDP
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from gidd.models.dit import DIT
 from gidd.checkpoints import (
@@ -28,6 +30,7 @@ from gidd.data import get_dataloaders
 from gidd.loss import get_loss
 from gidd.trainer import get_trainer
 from gidd.optimizer import get_optimizer
+from gidd.sampling import get_sampler
 from gidd.utils import (
     get_lr,
     parse_dtype,
@@ -46,6 +49,95 @@ class Logger:
     def log(self, *args, **kwargs):
         if self.is_main_process:
             wandb.log(*args, **kwargs)
+
+
+def compute_generative_ppl(sampler, model_tokenizer, reference_model, reference_tokenizer, config, dtype, device, is_main_process):
+    """Generate samples and compute generative perplexity."""
+    if not is_main_process:
+        return {}
+    
+    try:
+        print(f"[Gen PPL] Generating {config.logging.gen_ppl_num_samples} samples...")
+        samples = []
+        max_length = config.model.max_seq_len
+        
+        with torch.no_grad(), torch.autocast(device.type, dtype=dtype):
+            for i in range(0, config.logging.gen_ppl_num_samples, config.logging.gen_ppl_batch_size):
+                bs = min(config.logging.gen_ppl_batch_size, config.logging.gen_ppl_num_samples - i)
+                z_t = sampler.generate(
+                    bs, 
+                    config.logging.gen_ppl_num_denoising_steps, 
+                    max_length=max_length, 
+                    decode=False, 
+                    show_progress=False
+                )
+                samples.append(z_t)
+        
+        samples = torch.cat(samples, dim=0)
+        texts = model_tokenizer.batch_decode(samples, skip_special_tokens=True)
+        
+        print(f"[Gen PPL] Computing perplexity using {config.logging.gen_ppl_reference_model}...")
+        total_nll = 0
+        total_tokens = 0
+        total_acc = 0
+        all_nlls = []
+        
+        with torch.no_grad():
+            for i in range(0, len(texts), config.logging.gen_ppl_batch_size):
+                xs = texts[i:i + config.logging.gen_ppl_batch_size]
+                
+                batch = reference_tokenizer(
+                    xs, 
+                    padding=True, 
+                    return_tensors="pt", 
+                    truncation=True, 
+                    max_length=512
+                ).to(device)
+                attn_mask = batch["attention_mask"]
+                
+                logits = reference_model(
+                    input_ids=batch["input_ids"], 
+                    attention_mask=attn_mask, 
+                    use_cache=False
+                ).logits[:, :-1]
+                
+                labels = batch["input_ids"][:, 1:]
+                loss_mask = attn_mask[:, :-1]
+                
+                nll = F.cross_entropy(
+                    logits.flatten(0, 1), 
+                    labels.flatten(0, 1), 
+                    reduction='none'
+                ).view_as(labels)
+                
+                all_nlls.extend(nll[loss_mask == 1].cpu().numpy().tolist())
+                total_nll += (nll * loss_mask).sum().item()
+                
+                acc = (logits.argmax(-1) == labels).float()
+                total_acc += (acc * loss_mask).sum().item()
+                
+                total_tokens += loss_mask.sum().item()
+        
+        nll = total_nll / total_tokens
+        ppl = np.exp(nll)
+        acc = total_acc / total_tokens
+        
+        metrics = {
+            "gen_ppl/nll": nll,
+            "gen_ppl/ppl": ppl,
+            "gen_ppl/acc": acc,
+            "gen_ppl/tokens": total_tokens,
+            "gen_ppl/median_nll": np.median(all_nlls),
+        }
+        
+        print(f"[Gen PPL] Results: PPL={ppl:.2f}, NLL={nll:.4f}, Acc={acc:.4f}")
+        return metrics
+        
+    except Exception as e:
+        print(f"[Gen PPL] Error during generative ppl computation: {e}")
+        import traceback
+        traceback.print_exc()
+        return {}
 
 
 @contextmanager
@@ -144,6 +236,32 @@ def main(config):
         pwd = Path(".").resolve()
         wandb.config.update({"pwd": pwd})
         print(f"Working directory: {pwd}")
+
+    # Initialize generative PPL evaluation if enabled
+    reference_model = None
+    reference_tokenizer = None
+    sampler = None
+    if config.logging.gen_ppl_enabled and is_main_process:
+        print(f"[Gen PPL] Loading reference model: {config.logging.gen_ppl_reference_model}")
+        try:
+            reference_tokenizer = AutoTokenizer.from_pretrained(config.logging.gen_ppl_reference_model)
+            if reference_tokenizer.pad_token_id is None:
+                reference_tokenizer.pad_token = reference_tokenizer.eos_token
+            reference_model = AutoModelForCausalLM.from_pretrained(
+                config.logging.gen_ppl_reference_model, 
+                device_map="auto"
+            )
+            reference_model.eval()
+            print(f"[Gen PPL] Reference model loaded successfully")
+            
+            # Create sampler for generation
+            sampler = get_sampler(config, model, tokenizer, noise_schedule, compile_step=False, min_p=0.0)
+            print(f"[Gen PPL] Sampler initialized")
+        except Exception as e:
+            print(f"[Gen PPL] Failed to load reference model: {e}")
+            print("[Gen PPL] Disabling generative PPL evaluation")
+            with open_dict(config):
+                config.logging.gen_ppl_enabled = False
 
     if isinstance(model, DIT):
         non_emb_params = sum(p.numel() for p in model.blocks.parameters())
@@ -292,15 +410,16 @@ def main(config):
                         if i >= config.logging.num_eval_batches - 1:
                             break
 
-                    for key in ["nll", "ppl"]:
-                        if key in eval_metrics:
-                            del eval_metrics[key]
+                    # Compute validation perplexity from loss
+                    eval_loss_avg = eval_loss / num_eval_samples
+                    eval_ppl = np.exp(eval_loss_avg)
 
                     dist.barrier()
 
                     eval_elapsed_time = time.time() - eval_start_time
                     logger.log({
-                        "eval/loss": eval_loss / num_eval_samples,
+                        "eval/loss": eval_loss_avg,
+                        "eval/ppl": eval_ppl,
                         "eval/time_taken": eval_elapsed_time,
                         **{f"eval/{k}": v / num_eval_samples for k, v in eval_metrics.items()},
                     }, step=step)
@@ -319,6 +438,45 @@ def main(config):
                 output_path.mkdir(exist_ok=True, parents=True)
                 save_rng_state(output_path, global_rank)
                 dist.barrier()
+
+            ### GENERATIVE PPL ###
+
+            if config.logging.gen_ppl_enabled and ((step + 1) % config.logging.gen_ppl_freq) == 0:
+                if is_distributed:
+                    dist.barrier()
+                
+                if is_main_process:
+                    print(f"\n[Gen PPL] Starting generative perplexity evaluation at step {step + 1}")
+                    gen_ppl_start_time = time.time()
+                    
+                    # Set model to eval mode
+                    model.eval()
+                    
+                    # Compute generative PPL
+                    gen_ppl_metrics = compute_generative_ppl(
+                        sampler=sampler,
+                        model_tokenizer=tokenizer,
+                        reference_model=reference_model,
+                        reference_tokenizer=reference_tokenizer,
+                        config=config,
+                        dtype=dtype,
+                        device=device,
+                        is_main_process=is_main_process,
+                    )
+                    
+                    gen_ppl_elapsed_time = time.time() - gen_ppl_start_time
+                    gen_ppl_metrics["gen_ppl/time_taken"] = gen_ppl_elapsed_time
+                    
+                    # Log to wandb
+                    logger.log(gen_ppl_metrics, step=step)
+                    
+                    # Set model back to train mode
+                    model.train()
+                    
+                    print(f"[Gen PPL] Completed in {gen_ppl_elapsed_time:.2f}s\n")
+                
+                if is_distributed:
+                    dist.barrier()
 
             pbar.update(1)
 
