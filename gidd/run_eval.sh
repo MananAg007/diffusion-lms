@@ -63,12 +63,12 @@ echo "Metrics will be saved to: ${METRICS_PATH}"
 
 # Step 1: Generate samples from the checkpoint
 echo "=== Step 1: Generating samples ==="
-python gidd/eval/generate_samples.py \
-    path="${CHECKPOINT_PATH}" \
-    samples_path="${SAMPLES_PATH}" \
-    num_samples=48 \
-    num_denoising_steps=128 \
-    batch_size=16
+# python gidd/eval/generate_samples.py \
+#     path="${CHECKPOINT_PATH}" \
+#     samples_path="${SAMPLES_PATH}" \
+#     num_samples=48 \
+#     num_denoising_steps=128 \
+#     batch_size=16
 
 # Step 2: Compute generative perplexity
 # Note: google/gemma-2-9b is a gated model - you need to:
@@ -80,12 +80,12 @@ python gidd/eval/generate_samples.py \
 # echo "=== Step 2: Computing generative perplexity ==="
 # echo "Using reference model: google/gemma-2-9b (requires HuggingFace authentication)"
 
-# python gidd/eval/generative_ppl.py \
-#     samples_path="${SAMPLES_PATH}" \
-#     model_tokenizer=gpt2 \
-#     pretrained_model=google/gemma-2-9b \
-#     batch_size=4 \
-#     metrics_path="${METRICS_PATH}"
+python gidd/eval/generative_ppl.py \
+    samples_path="${SAMPLES_PATH}" \
+    model_tokenizer=gpt2 \
+    pretrained_model=google/gemma-2-9b \
+    batch_size=4 \
+    metrics_path="${METRICS_PATH}"
 
 # echo "Evaluation complete! Results saved to: ${METRICS_PATH}"
 
