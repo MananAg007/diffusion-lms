@@ -43,6 +43,8 @@ class GiddSampler(Sampler):
             self.noise_schedule = noise_schedule
             self.tokenizer = tokenizer
             self.min_p = min_p
+            # Get the actual vocab size from the model (may be rounded for efficiency)
+            self.vocab_size = getattr(model, 'rounded_vocab_size', len(tokenizer))
 
         def forward(self, z_t, t, s):
             logits = self.model(z_t, t)
@@ -58,8 +60,14 @@ class GiddSampler(Sampler):
 
             alpha_ts = alpha_t / alpha_s
             beta_pi_ts = beta_pi_t - alpha_t / alpha_s * beta_pi_s
+            
+            # Pad beta_pi_ts to match model's vocab size if needed
+            if beta_pi_ts.shape[-1] < self.vocab_size:
+                padding = torch.zeros(*beta_pi_ts.shape[:-1], self.vocab_size - beta_pi_ts.shape[-1], 
+                                     device=beta_pi_ts.device, dtype=beta_pi_ts.dtype)
+                beta_pi_ts = torch.cat([beta_pi_ts, padding], dim=-1)
 
-            vz_t = F.one_hot(z_t, num_classes=len(self.tokenizer))
+            vz_t = F.one_hot(z_t, num_classes=self.vocab_size)
             beta_pi_ts_at_zt = beta_pi_ts.unsqueeze(1).expand_as(vz_t).gather(-1, z_t.unsqueeze(-1))
             q_ts = (alpha_ts * vz_t + beta_pi_ts_at_zt)
 

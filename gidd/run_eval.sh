@@ -66,7 +66,7 @@ echo "=== Step 1: Generating samples ==="
 python gidd/eval/generate_samples.py \
     path="${CHECKPOINT_PATH}" \
     samples_path="${SAMPLES_PATH}" \
-    num_samples=1000 \
+    num_samples=48 \
     num_denoising_steps=128 \
     batch_size=16
 
@@ -77,15 +77,15 @@ python gidd/eval/generate_samples.py \
 # 3. Or set: export HF_TOKEN=your_token
 # Alternative: Use a non-gated model like "meta-llama/Llama-2-7b-hf" (also requires access)
 # or "microsoft/DialoGPT-large" (open, but smaller/less accurate)
-echo "=== Step 2: Computing generative perplexity ==="
-echo "Using reference model: google/gemma-2-9b (requires HuggingFace authentication)"
+# echo "=== Step 2: Computing generative perplexity ==="
+# echo "Using reference model: google/gemma-2-9b (requires HuggingFace authentication)"
 
-python gidd/eval/generative_ppl.py \
-    samples_path="${SAMPLES_PATH}" \
-    model_tokenizer=gpt2 \
-    pretrained_model=google/gemma-2-9b \
-    batch_size=4 \
-    metrics_path="${METRICS_PATH}"
+# python gidd/eval/generative_ppl.py \
+#     samples_path="${SAMPLES_PATH}" \
+#     model_tokenizer=gpt2 \
+#     pretrained_model=google/gemma-2-9b \
+#     batch_size=4 \
+#     metrics_path="${METRICS_PATH}"
 
-echo "Evaluation complete! Results saved to: ${METRICS_PATH}"
+# echo "Evaluation complete! Results saved to: ${METRICS_PATH}"
 
