@@ -1,0 +1,120 @@
+# GIDD Codebase Reading Guide
+# Read files in this order to understand the interpolation between masked and uniform diffusion
+
+## Phase 1: Core Diffusion Process (Understanding the Interpolation)
+1. gidd/diffusion_process.py ✨✨✨ IMPORTANT ✨✨✨
+   - Core file! Defines HybridDiffusion that interpolates between masking and uniform noise
+   - Key classes: NoiseSchedule, HybridDiffusion, MaskedDiffusion
+   - Understand: get_alpha_betapi(), probs_at_t(), sample_zt()
+   - got it ✅
+
+2. gidd/utils.py
+   - Utility functions: sample_categorical(), parse_dtype(), get_lr()
+   - Helper functions used throughout the codebase
+   - easy (only sample_categorical most relevant) ✅
+
+## Phase 2: Loss Computation (How the Model Learns)
+3. gidd/loss.py ✨✨✨ IMPORTANT ✨✨✨
+   - Defines GiddLoss and MDLMLoss classes
+   - Key: get_weights() computes time-dependent loss weights
+   - Understand: How the model learns to denoise with hybrid noise
+   - Understood ✅ Understand the Differential, and why MDLM loss is different from Gidd's Loss
+
+## Phase 3: Model Architecture (The Neural Network)
+4. gidd/models/dit.py
+   - Diffusion Transformer (DiT) architecture
+   - Key classes: DIT, DDiTBlock, TimestepEmbedder
+   - Understand: How timestep conditioning works via adaLN
+   - Understood ✅ Generic modeling stuff
+
+5. gidd/modeling.py
+   - Factory functions: get_model(), get_tokenizer()
+   - Model initialization and setup
+   - Understood ✅ Just initialization of model
+
+## Phase 4: Training (Putting It All Together)
+6. gidd/trainer.py
+   - DiffusionTrainer: Core training step
+   - Understand: How forward pass works (sample t, sample z_t, predict, compute loss)
+   - Understood ✅ Just trainer loading for AR and Diffusion
+
+7. gidd/train.py ✨✨✨ IMPORTANT ✨✨✨
+   - Main training script with distributed training
+   - Training loop, checkpointing, logging
+   - Understand: Full training pipeline
+   - Understood ✅ Just standard training loop stuff
+
+8. gidd/data.py
+   - Data loading and preprocessing
+   - Dataset setup for training
+   - Understood ✅ Tokenisation and Dataset related. Not relevant.
+
+9. gidd/optimizer.py
+   - Optimizer configuration
+   - Learning rate scheduling setup
+   - Understood ✅ Adam Optimiser etc
+
+## Phase 5: Sampling/Inference (Generation)
+10. gidd/sampling.py ✨✨✨ IMPORTANT ✨✨✨
+    - GiddSampler: Reverse diffusion sampling
+    - Key: DenoisingStep computes transition probabilities
+    - Understand: How samples are generated from noise
+    - Understood ✅
+
+11. gidd/likelihood.py
+    - Likelihood computation for evaluation
+    - Used for computing metrics
+
+## Phase 6: High-Level API (User Interface)
+12. gidd/pipeline.py
+    - GiddPipeline: User-friendly interface
+    - generate() and self_correction() methods
+    - Easy way to use trained models
+
+## Phase 7: Configuration and Evaluation
+13. gidd/configs/gidd.yaml
+    - Default configuration for GIDD training
+    - Key parameters: p_uniform, loss_weighting, etc.
+    - Understood ✅ Just config stuff
+
+14. gidd/checkpoints.py
+    - Checkpoint saving and loading utilities
+    - Training state management
+    - Understood ✅ Loading and Saving Checkpoints
+
+## Phase 8: Evaluation Scripts (Optional - for understanding evaluation)
+15. gidd/eval/generate_samples.py
+    - Script to generate samples from trained models
+    - Understood ✅ Generate samples from trained models
+
+16. gidd/eval/generative_ppl.py
+    - Computes generative perplexity for evaluation
+    - Understood ✅ Calculate ppl from a pretrained model.
+
+17. gidd/eval/self_correction.py
+    - Self-correction evaluation script
+
+18. gidd/eval/loss.py
+    - Validation loss computation
+
+## Key Files Summary:
+- MUST READ: diffusion_process.py, loss.py, sampling.py, trainer.py
+- IMPORTANT: dit.py, train.py, pipeline.py
+- SUPPORTING: utils.py, modeling.py, data.py, configs/
+
+## Reading Strategy:
+1. Start with diffusion_process.py to understand the core interpolation math
+2. Read loss.py to see how the model learns
+3. Read trainer.py to see one training step
+4. Read sampling.py to understand generation
+5. Read train.py to see the full training loop
+6. Read pipeline.py for the high-level API
+7. Explore other files as needed for specific functionality
+
+
+
+
+Things I would need to change:
+1. Forward Diffusion Process (in diffusion_process.py)
+2. Loss Function weights (in loss.py)
+3. Sampling (in sampling.py)
