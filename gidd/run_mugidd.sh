@@ -38,7 +38,7 @@ mkdir -p /project/flame/mananaga/gidd/outputs
 
 torchrun --nnodes 1 --nproc_per_node 8 gidd/train.py \
     --config-name mugidd \
-    logging.run_name="'small-mugidd-owt-mu=0.0'" \
+    logging.run_name="mugidd_0.5" \
     logging.save_dir="/project/flame/mananaga/gidd/outputs" \
     logging.wandb_entity="diffusion-lms" \
     logging.gen_ppl_enabled=true \
