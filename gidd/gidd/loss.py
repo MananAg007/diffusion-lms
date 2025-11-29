@@ -198,6 +198,8 @@ class MDLMLoss(Loss):
 def get_loss(config, tokenizer, noise_schedule):
     if config.loss.loss_type == "gidd":
         return GiddLoss(config, tokenizer, noise_schedule)
+    elif config.loss.loss_type == "mugidd":
+        return MuGiddLoss(config, tokenizer, noise_schedule)
     elif config.loss.loss_type == "mdlm":
         return MDLMLoss(config, tokenizer, noise_schedule)
     elif config.loss.loss_type == "ar":

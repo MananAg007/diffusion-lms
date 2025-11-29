@@ -227,6 +227,8 @@ def get_noise_schedule(config, tokenizer):
         return None
     elif config.model.diffusion_process == "gidd":
         noise_schedule = HybridDiffusion(tokenizer, p_uniform=config.model.p_uniform)
+    elif config.model.diffusion_process == "mugidd":
+        noise_schedule = MuGIDD(tokenizer, mu=config.model.mu)
     elif config.model.diffusion_process == "mdlm":
         noise_schedule = MaskedDiffusion(tokenizer)
     else:
