@@ -29,6 +29,61 @@ class Loss(torch.nn.Module, ABC):
         return loss, elbo, metrics
 
 
+class MuGiddLoss(Loss):
+    """
+    Loss for MuGIDD (constant-μ resample-from-πμ diffusion).
+
+    We train denoising (predict x0 from z_t) on positions that are corrupted,
+    with CTMC-inspired weighting ~ 1 / (t (1 - t)).
+
+    This is schedule-consistent for q_t = (1 - t) δ_x + t πμ, which corresponds
+    to a CTMC with hazard r(t)=1/(1-t) and resampling distribution πμ.
+    """
+    def __init__(self, config, tokenizer, noise_schedule):
+        super().__init__(config, tokenizer, noise_schedule)
+        self.mask_id = tokenizer.mask_token_id
+        self.neg_infty = -1e6
+
+        # If these exist in your config, we respect them; otherwise defaults are fine.
+        self.loss_weighting = getattr(config.loss, "loss_weighting", "none")
+        self.min_loss_weight = getattr(config.loss, "min_loss_weight", 0.0)
+        self.max_loss_weight = getattr(config.loss, "max_loss_weight", 1e9)
+
+    def _base_weight(self, t, eps=1e-12):
+        # t: [B]  -> returns [B, 1]
+        t = t.unsqueeze(-1)
+        return 1.0 / (t * (1.0 - t) + eps)
+
+    def loss(self, logits, input_ids, attention_mask, z_t, t):
+        # logits: [B, L, V]
+        # input_ids, z_t: [B, L]
+        # t: [B]
+
+        # Prevent predicting [MASK] as a denoised token (matches sampler behavior)
+        logits[..., self.mask_id] = self.neg_infty
+
+        # Reconstruction loss for x0
+        rec_loss = F.cross_entropy(logits.transpose(1, 2), input_ids, reduction="none")  # [B, L]
+
+        # Supervise only corrupted positions (where z_t differs from x0)
+        corrupted = (z_t != input_ids)  # [B, L] bool
+
+        weights = self._base_weight(t).to(rec_loss.dtype) * corrupted.to(rec_loss.dtype)  # [B, L]
+
+        # Optional clipping behavior (mirrors the GiddLoss config knobs)
+        if self.loss_weighting == "clip":
+            weights = weights.clamp(self.min_loss_weight, self.max_loss_weight)
+
+        elbo = weights * rec_loss
+        loss = elbo
+
+        denom = (weights * attention_mask).sum().clamp_min(1e-12)
+        metrics = {
+            "rec_loss": (weights * rec_loss.detach() * attention_mask).sum() / denom,
+            "elbo": (elbo.detach() * attention_mask).sum() / attention_mask.sum().clamp_min(1.0),
+        }
+        return loss, elbo, metrics
+
 class GiddLoss(Loss):
     def __init__(self, config, tokenizer, noise_schedule):
         super().__init__(config, tokenizer, noise_schedule)

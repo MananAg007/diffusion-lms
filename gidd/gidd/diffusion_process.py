@@ -102,6 +102,90 @@ class HybridDiffusion(NoiseSchedule):
         z_t = sample_categorical(probs)
         return z_t
     
+class MuGIDD(NoiseSchedule):
+    """
+    Constant-μ interpolation between Masked and Uniform diffusion.
+
+    q_t(z | x) = Cat( alpha(t) * one_hot(x) + beta(t) * pi_mu )
+
+    alpha(t) = 1 - t
+    beta(t)  = t
+
+    pi_mu = (1 - mu) * mask_onehot + mu * unif_nonmask
+      - mu=0   => pure masked (prior all [MASK])
+      - mu=1   => pure uniform over non-mask tokens (mask prob = 0)
+      - mu=0.5 => constant 50/50 mixture for all t
+    """
+    def __init__(self, tokenizer, mu=0.0):
+        # Must set mu BEFORE super().__init__ because super registers log_prior via get_log_prior()
+        self.mu = float(mu)
+        if not (0.0 <= self.mu <= 1.0):
+            raise ValueError(f"mu must be in [0,1], got {self.mu}")
+
+        super().__init__(tokenizer)
+
+        mask = torch.zeros(self.vocab_size)
+        mask[self.mask_id] = 1.0
+        self.register_buffer("mask", mask, persistent=False)
+
+        unif = (1.0 - self.mask) / (self.vocab_size - 1)
+        self.register_buffer("unif", unif, persistent=False)
+
+    def get_log_prior(self):
+        # Prior at t=1 is pi_mu (constant in time)
+        # mask prob = (1-mu), others = mu/(V-1)
+        pr = torch.full((self.vocab_size,), -1e3)  # finite "minus inf"
+        if self.mu < 1.0:
+            pr[self.mask_id] = float(np.log(max(1.0 - self.mu, 1e-12)))
+        if self.mu > 0.0:
+            val = float(np.log(max(self.mu / (self.vocab_size - 1), 1e-12)))
+            pr[:] = pr.where(torch.arange(self.vocab_size) == self.mask_id, torch.tensor(val))
+            pr[self.mask_id] = float(np.log(max(1.0 - self.mu, 1e-12))) if self.mu < 1.0 else -1e3
+
+        # Normalize (so downstream code can rely on logsumexp=0)
+        return pr - pr.logsumexp(-1, keepdim=True)
+
+    def sample_prior(self, shape):
+        # Sample from pi_mu. For mu=0, this returns all masks (fast path).
+        if self.mu == 0.0:
+            return torch.full(shape, self.mask_id, dtype=torch.long, device=self.log_prior.device)
+
+        probs = self.log_prior.exp()
+        # sample_categorical expects probs broadcastable to [..., V]
+        probs = probs.view(*([1] * len(shape)), -1).expand(*shape, -1)
+        return sample_categorical(probs)
+
+    def get_alpha_betapi(self, t):
+        """
+        Returns:
+          alpha_t: [B, 1]
+          beta_pi: [B, V]
+        """
+        t = t[:, None]
+        alpha_t = 1.0 - t
+        pi_mu = (1.0 - self.mu) * self.mask + self.mu * self.unif  # [V]
+        beta_pi = t * pi_mu[None, :]  # [B, V]
+        return alpha_t, beta_pi
+
+    def logits_at_t(self, features, t):
+        # Mirror HybridDiffusion behavior: this schedule is used via probs_at_t.
+        raise NotImplementedError("logits_at_t is not implemented for MuGIDD. Use probs_at_t instead.")
+
+    def probs_at_t(self, prs, t):
+        """
+        prs is typically [B, L, V] (e.g., one-hot of x0) or any distribution over vocab.
+        """
+        orig_dtype = prs.dtype
+        alpha_t, beta_pi = self.get_alpha_betapi(t)
+
+        probs = prs.mul(alpha_t.unsqueeze(-1))          # [B, L, V]
+        probs[..., :beta_pi.shape[-1]].add_(beta_pi.unsqueeze(1))  # add to all positions
+        return probs.to(orig_dtype)
+
+    def sample_zt(self, input_ids, t):
+        x = F.one_hot(input_ids, num_classes=self.vocab_size).to(dtype=t.dtype)
+        probs = self.probs_at_t(x, t)
+        return sample_categorical(probs)
 
 class MaskedDiffusion(NoiseSchedule):
     def __init__(self, tokenizer):
