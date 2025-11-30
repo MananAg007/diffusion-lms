@@ -78,13 +78,19 @@ def generate_and_save_samples(sampler, model_tokenizer, config, dtype, device, s
         # Save samples to file
         save_dir = Path(config.logging.save_dir) / "generations"
         save_dir.mkdir(exist_ok=True, parents=True)
-        save_path = save_dir / f"samples_step_{step+1}.txt"
+        save_path = save_dir / f"samples_step_{step+1}.pt"
         
-        with open(save_path, 'w', encoding='utf-8') as f:
-            for i, text in enumerate(texts):
-                f.write(f"=== Sample {i+1} ===\n")
-                f.write(text)
-                f.write("\n\n")
+        # Save both token IDs and decoded texts
+        torch.save({
+            'token_ids': samples.cpu(),
+            'texts': texts,
+            'step': step + 1,
+            'num_samples': len(texts),
+            'config': {
+                'num_denoising_steps': config.logging.gen_ppl_num_denoising_steps,
+                'max_length': config.model.max_seq_len,
+            }
+        }, save_path)
         
         print(f"[Generation] Saved {len(texts)} samples to {save_path}")
         

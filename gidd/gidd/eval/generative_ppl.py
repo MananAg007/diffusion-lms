@@ -28,16 +28,31 @@ def main(args):
         model = torch.compile(model)
 
     samples_path = hydra.utils.to_absolute_path(args.samples_path)
-    z_ts = torch.load(samples_path, weights_only=True)
-    # fix for bug in self-correct script:
-    if z_ts.shape[1] == 1:
-        z_ts = z_ts.squeeze(1)
-    texts = model_tokenizer.batch_decode(z_ts, skip_special_tokens=True)
+    samples_data = torch.load(samples_path, weights_only=False)
+    
+    # Handle both old format (tensor) and new format (dict)
+    if isinstance(samples_data, dict):
+        # New format: dictionary with 'token_ids' and 'texts'
+        if 'texts' in samples_data:
+            texts = samples_data['texts']
+        else:
+            z_ts = samples_data['token_ids']
+            texts = model_tokenizer.batch_decode(z_ts, skip_special_tokens=True)
+    else:
+        # Old format: just a tensor
+        z_ts = samples_data
+        # fix for bug in self-correct script:
+        if z_ts.shape[1] == 1:
+            z_ts = z_ts.squeeze(1)
+        texts = model_tokenizer.batch_decode(z_ts, skip_special_tokens=True)
 
     total_acc = 0
     total_nll = 0
     total_tokens = 0
     all_nlls = []
+    per_sample_ppls = []
+    per_sample_nlls = []
+    
     with torch.no_grad():
         for i in tqdm.trange(0, len(texts), args.batch_size, desc="Inference", dynamic_ncols=True):
             xs = texts[i:i + args.batch_size]
@@ -58,25 +73,54 @@ def main(args):
             total_acc += (acc * loss_mask).sum().item()
 
             total_tokens += loss_mask.sum().item()
+            
+            # Compute per-sample PPL
+            for j in range(len(xs)):
+                sample_mask = loss_mask[j]
+                sample_nll = nll[j]
+                sample_tokens = sample_mask.sum().item()
+                
+                if sample_tokens > 0:
+                    sample_avg_nll = (sample_nll * sample_mask).sum().item() / sample_tokens
+                    per_sample_nlls.append(sample_avg_nll)
+                    per_sample_ppls.append(np.exp(sample_avg_nll))
 
 
-    nll = total_nll / total_tokens
-    ppl = np.exp(total_nll / total_tokens)
+    # Corpus-level metrics (original)
+    corpus_nll = total_nll / total_tokens
+    corpus_ppl = np.exp(total_nll / total_tokens)
     acc = total_acc / total_tokens
+    
+    # Per-sample statistics
+    per_sample_ppls = np.array(per_sample_ppls)
+    per_sample_nlls = np.array(per_sample_nlls)
 
     metrics = {
         "file": Path(args.samples_path).stem,
         "pretrained_model": args.pretrained_model,
         "median_nll": np.median(all_nlls),
-        "avg_nll": nll,
-        "ppl": ppl,
+        "avg_nll": corpus_nll,
+        "total_ppl": corpus_ppl,
         "acc": acc,
         "tokens": total_tokens,
+        # Per-sample PPL statistics
+        "ppl_mean": float(np.mean(per_sample_ppls)),
+        "ppl_std": float(np.std(per_sample_ppls)),
+        "ppl_median": float(np.median(per_sample_ppls)),
+        "ppl_min": float(np.min(per_sample_ppls)),
+        "ppl_max": float(np.max(per_sample_ppls)),
+        "ppl_q25": float(np.percentile(per_sample_ppls, 25)),
+        "ppl_q75": float(np.percentile(per_sample_ppls, 75)),
+        # Per-sample NLL statistics
+        "nll_mean": float(np.mean(per_sample_nlls)),
+        "nll_std": float(np.std(per_sample_nlls)),
     }
 
     print(json.dumps(metrics, indent=4))
     print("=== RESULTS ===")
-    print(",".join(map(str, metrics.values())))
+    print(f"Corpus PPL: {metrics['total_ppl']:.2f}")
+    print(f"Per-sample PPL: {metrics['ppl_mean']:.2f} ± {metrics['ppl_std']:.2f} (std)")
+    print(f"  Min: {metrics['ppl_min']:.2f}, Max: {metrics['ppl_max']:.2f}, Median: {metrics['ppl_median']:.2f}")
     print("===============")
 
     with open(hydra.utils.to_absolute_path(args.metrics_path), "w") as f:
