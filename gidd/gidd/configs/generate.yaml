@@ -4,3 +4,4 @@ num_samples: 16
 num_denoising_steps: 128
 min_p: 0.0
 samples_path: samples.pt
+decode_intermediates: false
