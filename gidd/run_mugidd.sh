@@ -39,13 +39,12 @@ mkdir -p /project/flame/mananaga/gidd/outputs
 torchrun --nnodes 1 --nproc_per_node 8 gidd/train.py \
     --config-name mugidd \
     logging.run_name="mugidd_0.5" \
-    logging.save_dir="/project/flame/mananaga/gidd/outputs" \
+    logging.save_dir="/home/mananaga/experiments/mugidd-0.5/outputs" \
     logging.wandb_entity="diffusion-lms" \
     logging.gen_ppl_enabled=true \
     logging.gen_ppl_freq=10000 \
-    logging.gen_ppl_num_samples=800 \
+    logging.gen_ppl_num_samples=64 \
     logging.gen_ppl_num_denoising_steps=128 \
     logging.gen_ppl_batch_size=16 \
-    logging.gen_ppl_reference_model="google/gemma-2-9b" \
     data.num_workers=2
 

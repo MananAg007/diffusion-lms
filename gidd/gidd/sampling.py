@@ -186,7 +186,7 @@ class AutoregressiveSampler(Sampler):
 
 def get_sampler(config, model, tokenizer, noise_schedule: NoiseSchedule, compile_step=True, min_p=0.0):
     if config.model.type == "diffusion":
-        if config.model.diffusion_process == "gidd":
+        if config.model.diffusion_process in ["gidd", "mugidd"]:
             return GiddSampler(model, tokenizer, noise_schedule, t_eps=config.model.t_eps, compile_step=compile_step, min_p=min_p)
         elif config.model.diffusion_process == "mdlm":
             return MDLMSampler(model, tokenizer, noise_schedule, t_eps=config.model.t_eps, compile_step=compile_step, min_p=min_p)
