@@ -43,7 +43,7 @@ torchrun --nnodes 1 --nproc_per_node 8 gidd/train.py \
     logging.wandb_entity="diffusion-lms" \
     logging.gen_ppl_enabled=true \
     logging.gen_ppl_freq=10000 \
-    logging.gen_ppl_num_samples=64 \
+    logging.gen_ppl_num_samples=512 \
     logging.gen_ppl_num_denoising_steps=128 \
     logging.gen_ppl_batch_size=16 \
     data.num_workers=2

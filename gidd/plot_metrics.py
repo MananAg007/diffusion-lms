@@ -8,7 +8,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Hardcoded metrics directory
-METRICS_DIR = Path.home() / "experiments/mugidd-0.5/outputs/generations/metrics"
+METRICS_DIR = Path.home() / "experiments/gidd-baseline/outputs/generations/metrics"
+
+# Maximum PPL value for plot y-axis
+MAX_PPL = 5000
 
 def load_metrics(metrics_dir):
     """Load all metrics JSON files from directory."""
@@ -32,26 +35,45 @@ def plot_metrics(data):
     """Create subplots for different metrics."""
     steps = [d['step'] for d in data]
     
-    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
-    fig.suptitle('Generative Perplexity over Training Steps', fontsize=16, fontweight='bold')
+    # Check if corpus PPL is available
+    has_corpus_ppl = 'total_ppl' in data[0]
     
-    # Plot: Perplexity (with error bars)
-    # Use total_ppl if available, otherwise fall back to ppl for backwards compatibility
-    ppl_mean = [d.get('ppl_mean', d.get('ppl', 0)) for d in data]
-    ppl_std = [d.get('ppl_std', 0) for d in data]
-    
-    ax.errorbar(steps, ppl_mean, yerr=ppl_std, marker='o', linewidth=2, markersize=8, 
-                capsize=5, capthick=2, label='Mean ± Std')
-    # Also plot corpus-level PPL if available
-    if 'total_ppl' in data[0]:
+    if has_corpus_ppl:
+        fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+        fig.suptitle('Generative Perplexity over Training Steps', fontsize=16, fontweight='bold')
+        
+        # Plot: Corpus-level PPL
         total_ppl = [d['total_ppl'] for d in data]
-        ax.plot(steps, total_ppl, marker='s', linewidth=1.5, markersize=6, 
-                linestyle='--', alpha=0.7, label='Corpus PPL')
-    ax.legend()
-    ax.set_xlabel('Training Step', fontsize=12)
-    ax.set_ylabel('Perplexity', fontsize=12)
-    ax.set_title('Perplexity (Per-Sample)', fontsize=14, fontweight='bold')
-    ax.grid(True, alpha=0.3)
+        ax.plot(steps, total_ppl, marker='o', linewidth=2, markersize=8, 
+                linestyle='-', color='tab:blue')
+        ax.set_xlabel('Training Step', fontsize=12)
+        ax.set_ylabel('Perplexity', fontsize=12)
+        ax.set_title('Corpus-Level Perplexity', fontsize=14, fontweight='bold')
+        
+        # Auto-scale y-axis with margin
+        min_ppl = min(total_ppl)
+        max_ppl = max(total_ppl)
+        margin = (max_ppl - min_ppl) * 0.1  # 10% margin
+        ax.set_ylim(max(0, min_ppl - margin), max_ppl + margin)
+        ax.grid(True, alpha=0.3)
+    else:
+        # Fallback for backwards compatibility
+        fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+        fig.suptitle('Generative Perplexity over Training Steps', fontsize=16, fontweight='bold')
+        
+        ppl_mean = [d.get('ppl_mean', d.get('ppl', 0)) for d in data]
+        
+        ax.plot(steps, ppl_mean, marker='o', linewidth=2, markersize=8, linestyle='-')
+        ax.set_xlabel('Training Step', fontsize=12)
+        ax.set_ylabel('Perplexity', fontsize=12)
+        ax.set_title('Perplexity', fontsize=14, fontweight='bold')
+        
+        # Auto-scale y-axis with margin
+        min_ppl = min(ppl_mean)
+        max_ppl = max(ppl_mean)
+        margin = (max_ppl - min_ppl) * 0.1  # 10% margin
+        ax.set_ylim(max(0, min_ppl - margin), max_ppl + margin)
+        ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
     

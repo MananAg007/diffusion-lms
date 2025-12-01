@@ -16,7 +16,7 @@ echo "Job submitted from: $SLURM_SUBMIT_DIR"
 echo "Running on node: $SLURMD_NODENAME"
 
 # Hardcoded path to generations directory
-GENERATIONS_DIR="/home/mananaga/experiments/mugidd-0.5/outputs/generations"
+GENERATIONS_DIR="/home/mananaga/experiments/gidd-baseline/outputs/generations"
 
 if [ ! -d "$GENERATIONS_DIR" ]; then
     echo "Error: Directory $GENERATIONS_DIR does not exist"
