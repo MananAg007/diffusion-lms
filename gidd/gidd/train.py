@@ -56,7 +56,21 @@ def generate_and_save_samples(sampler, model_tokenizer, config, dtype, device, s
         return {}
     
     try:
-        print(f"[Generation] Generating {config.logging.gen_ppl_num_samples} samples...")
+        # Save current RNG states to restore after generation
+        torch_rng_state = torch.get_rng_state()
+        torch_cuda_rng_state = torch.cuda.get_rng_state() if torch.cuda.is_available() else None
+        numpy_rng_state = np.random.get_state()
+        python_rng_state = random.getstate()
+        
+        # Set fixed seed for generation (same across all checkpoints)
+        generation_seed = config.logging.get('gen_ppl_seed', 42)
+        torch.manual_seed(generation_seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(generation_seed)
+        np.random.seed(generation_seed)
+        random.seed(generation_seed)
+        
+        print(f"[Generation] Generating {config.logging.gen_ppl_num_samples} samples with seed {generation_seed}...")
         samples = []
         max_length = config.model.max_seq_len
         
@@ -71,6 +85,13 @@ def generate_and_save_samples(sampler, model_tokenizer, config, dtype, device, s
                     show_progress=False
                 )
                 samples.append(z_t)
+        
+        # Restore training RNG states
+        torch.set_rng_state(torch_rng_state)
+        if torch_cuda_rng_state is not None:
+            torch.cuda.set_rng_state(torch_cuda_rng_state)
+        np.random.set_state(numpy_rng_state)
+        random.setstate(python_rng_state)
         
         samples = torch.cat(samples, dim=0)
         texts = model_tokenizer.batch_decode(samples, skip_special_tokens=True)
@@ -89,6 +110,7 @@ def generate_and_save_samples(sampler, model_tokenizer, config, dtype, device, s
             'config': {
                 'num_denoising_steps': config.logging.gen_ppl_num_denoising_steps,
                 'max_length': config.model.max_seq_len,
+                'seed': generation_seed,
             }
         }, save_path)
         
