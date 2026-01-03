@@ -1,0 +1,9 @@
+train: openwebtext-1sample
+valid: openwebtext-1sample
+tokenizer_name_or_path: gpt2
+cache_dir: ./owt_1sample_data  
+wrap: False 
+streaming: False
+insert_train_eos: False
+insert_valid_eos: False
+# debug: True
